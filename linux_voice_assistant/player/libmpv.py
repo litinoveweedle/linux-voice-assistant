@@ -37,14 +37,27 @@ class LibMpvPlayer(AudioPlayer):
         if device:
             self._mpv["audio-device"] = device
 
-        # Buffer tuning prevents clipping the beginning of short sounds on some sinks.
+        # Pre-buffer audio before the sink starts clocking samples out.
+        # The default (0.2 s) is too tight for short notification sounds on
+        # PulseAudio/PipeWire: the sink stream takes a few ms to initialise
+        # and the very first samples are dropped before it is ready, making
+        # short files (<1 s) appear to start mid-way through.
+        # 0.8 s gives the output pipeline enough headroom without adding any
+        # noticeable latency for a user-facing notification sound.
         self._mpv["audio-buffer"] = 0.8
+
+        # Keep the PulseAudio/PipeWire stream open between files by outputting
+        # silence when idle.  This eliminates the per-play sink re-initialisation
+        # penalty entirely, so back-to-back short sounds (wakeup → TTS, mute →
+        # unmute) never lose their first samples regardless of system load.
         self._mpv["audio-stream-silence"] = True
 
-        # Callback handling
+        # Callback Handling
         self._done_callback: Optional[Callable[[], None]] = None
         self._mpv.event_callback("end-file")(self._on_end_file)
         self._mpv.event_callback("start-file")(self._on_start_file)
+
+    # -------- Playback control --------
 
     def play(
         self,
@@ -52,11 +65,18 @@ class LibMpvPlayer(AudioPlayer):
         done_callback: Optional[Callable[[], None]] = None,
         stop_first: bool = True,
     ) -> None:
-        """Start playback of a media URL."""
+        """
+        Start playback of a media URL.
+
+        Args:
+            url: Media URL or local file path.
+            done_callback: Optional callback invoked when playback finishes.
+            stop_first: If True, start playback in paused state.
+        """
         with self._state_lock:
+            self._log.debug("play: current_state=%s", self._state)
             self._done_callback = done_callback
             self._set_state(PlayerState.LOADING)
-
         self._mpv.pause = stop_first
         self._mpv.play(url)
 
@@ -68,6 +88,7 @@ class LibMpvPlayer(AudioPlayer):
 
     def resume(self) -> None:
         """Resume playback if paused."""
+        self._log.debug("unduck() called")
         with self._state_lock:
             self._mpv.pause = False
             self._set_state(PlayerState.PLAYING)
@@ -76,10 +97,13 @@ class LibMpvPlayer(AudioPlayer):
         """
         Stop playback.
 
-        If called for track replacement, clear callback to avoid triggering it during transition.
+        If called for track replacement, clears the callback to prevent
+        it from being invoked during the transition.
         """
+        self._log.debug("unduck() called")
         with self._state_lock:
             if for_replacement:
+                # Clear callback to prevent invocation during track transition
                 self._done_callback = None
             self._mpv.stop()
 
@@ -88,26 +112,44 @@ class LibMpvPlayer(AudioPlayer):
         with self._state_lock:
             return self._state
 
+    # -------- Volume / Ducking --------
+
     def set_volume(self, volume: float) -> None:
-        """Set user volume."""
+        """
+        Set user volume.
+
+        Args:
+            volume: Volume level (0.0–100.0).
+        """
+        self._log.debug("unduck() called")
         with self._state_lock:
             self._user_volume = max(0.0, min(100.0, float(volume)))
             self._apply_volume()
 
     def duck(self, factor: float = 0.5) -> None:
-        """Reduce volume temporarily by a ducking factor."""
+        """
+        Reduce volume temporarily by a ducking factor.
+
+        Args:
+            factor: Ducking factor (0.0–1.0).
+        """
+        self._log.debug("unduck() called")
         with self._state_lock:
             self._duck_factor = max(0.0, min(1.0, float(factor)))
             self._apply_volume()
 
     def unduck(self) -> None:
-        """Restore volume to user-defined level."""
+        """Restore volume to the user-defined level."""
+        self._log.debug("unduck() called")
         with self._state_lock:
             self._duck_factor = 1.0
             self._apply_volume()
 
+    # -------- Internal helpers --------
+
     def _apply_volume(self) -> None:
-        """Apply effective volume (user volume * duck factor) to mpv."""
+        """Apply effective volume (user volume × duck factor) to mpv."""
+        self._log.debug("unduck() called")
         effective = self._user_volume * self._duck_factor
         self._mpv.volume = max(0.0, min(100.0, effective))
 
@@ -115,11 +157,27 @@ class LibMpvPlayer(AudioPlayer):
         callback: Optional[Callable[[], None]] = None
 
         with self._state_lock:
+            # mpv events: event.data is a MpvEventEndFile object with a 'reason' attribute
+            # The reason is an integer constant (see mpv.END_FILE_REASON_*)
             end_file_data = event.data
             reason = getattr(end_file_data, "reason", -1) if end_file_data else -1
-            is_eof = reason == 0  # 0=eof, 1=stop, 2=abort, 3=quit, 4=error
 
+            # mpv END_FILE_REASON constants:
+            # 0 = eof (end of file), 1 = stop, 2 = abort, 3 = quit, 4 = error
+            is_eof = reason == 0
+
+            self._log.debug(
+                "_on_end_file: reason=%s (is_eof=%s), state=%s, has_callback=%s",
+                reason,
+                is_eof,
+                self._state,
+                self._done_callback is not None,
+            )
+
+            # Only process "eof" (reason=0) events as actual track completion.
+            # Other reasons are from track changes, stops, or errors.
             if not is_eof:
+                self._log.debug("_on_end_file: ignoring non-eof event (reason=%s)", reason)
                 return
 
             self._set_state(PlayerState.IDLE)
@@ -127,18 +185,26 @@ class LibMpvPlayer(AudioPlayer):
             self._done_callback = None
 
         if callback is not None:
+            self._log.debug("_on_end_file: invoking callback")
             try:
                 callback()
             except RuntimeError:
+                # Callback errors must never break the player
                 pass
 
-    def _on_start_file(self, _event) -> None:
+    def _on_start_file(self, event) -> None:
         """Called when mpv starts playing a file."""
+        self._log.debug("unduck() called")
         with self._state_lock:
+            self._log.debug("_on_start_file: state=%s", self._state)
             self._set_state(PlayerState.PLAYING)
 
-    def _on_mpv_log(self, level: str, _prefix: str, _text: str) -> None:
-        """Handle mpv log messages."""
+    def _on_mpv_log(self, level: str, prefix: str, text: str) -> None:
+        """
+        Handle mpv log messages.
+
+        Error and fatal messages transition the player into ERROR state.
+        """
         if level in ("error", "fatal"):
             with self._state_lock:
                 self._set_state(PlayerState.ERROR)
