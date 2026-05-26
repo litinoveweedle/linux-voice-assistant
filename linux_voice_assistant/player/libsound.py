@@ -9,7 +9,7 @@ from urllib.request import urlopen
 
 import numpy as np
 import soundcard as sc
-import soundfile as sf
+import soundfile as sf  # type: ignore[import-untyped]
 
 from linux_voice_assistant.player.base import AudioPlayer
 from linux_voice_assistant.player.state import PlayerState
