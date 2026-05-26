@@ -2,6 +2,8 @@
 
 You can install the application in different ways. We recommend to use Docker Compose if not the prebuilt image. But if you dont want to use Docker you can also install it directly on your system.
 
+Audio playback uses the `MediaPlayer`/`LibMediaPlayer` path (`soundcard` + `soundfile`). In Docker and systemd deployments, LVA reaches host PipeWire/PulseAudio through the socket configured in `LVA_PULSE_SERVER`.
+
 ## A) Docker Compose (recommended):
 
 Install packages:
@@ -107,7 +109,6 @@ sudo apt-get install \
   pipewire-alsa \
   pipewire-pulse \
   build-essential \
-  libmpv-dev \
   libasound2-plugins \
   ca-certificates \
   iproute2 \

@@ -22,7 +22,7 @@ if TYPE_CHECKING:
         WakeWord1SensitivityNumberEntity,
         WakeWord2SensitivityNumberEntity,
     )
-    from .mpv_player import MpvMediaPlayer
+    from .media_player import MediaPlayer
     from .satellite import VoiceSatelliteProtocol
 
 _LOGGER = logging.getLogger(__name__)
@@ -88,8 +88,8 @@ class ServerState:
     wake_words: "Dict[str, Union[MicroWakeWord, OpenWakeWord]]"
     active_wake_words: Set[str]
     stop_word: "MicroWakeWord"
-    music_player: "MpvMediaPlayer"
-    tts_player: "MpvMediaPlayer"
+    music_player: "MediaPlayer"
+    tts_player: "MediaPlayer"
     wakeup_sound: str
     processing_sound: str
     timer_finished_sound: str

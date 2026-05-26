@@ -15,9 +15,9 @@ from linux_voice_assistant.player.base import AudioPlayer
 from linux_voice_assistant.player.state import PlayerState
 
 
-class LibMpvPlayer(AudioPlayer):
+class LibMediaPlayer(AudioPlayer):
     """
-    AudioPlayer implementation for Linux Voice Assistant.
+    MediaPlayer implementation for Linux Voice Assistant.
 
     Responsibilities:
     - playback control
