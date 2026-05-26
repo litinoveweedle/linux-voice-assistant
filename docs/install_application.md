@@ -74,6 +74,13 @@ Start the application:
 docker compose up -d
 ```
 
+Build notes for local images:
+
+- Default build (no MPV install): `docker build -t lva:latest .`
+- Build with MPV support: `docker build --build-arg WITH_MPV=1 -t lva:with-mpv .`
+
+When `WITH_MPV=1` is used, the image includes `python-mpv` and `libmpv2`.
+
 💡 **Note:** If you want to use the application with a different user, you need to change the user in the .env file. Dont forget to change the UID from the user. The docker container will run until you stop it. It will restart autiomatically after a reboot.
 
 Check if the application is running:

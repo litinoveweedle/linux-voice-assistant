@@ -1,5 +1,7 @@
 FROM python:3.12-slim-trixie AS builder
 
+ARG WITH_MPV=0
+
 ENV LANG C.UTF-8
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
@@ -16,10 +18,13 @@ WORKDIR /app
 COPY . ./
 
 RUN chmod +x docker-entrypoint.sh && \
-    ./script/setup
+    ./script/setup && \
+    if [ "$WITH_MPV" = "1" ]; then /app/.venv/bin/pip install -e ".[mpv]"; fi
 
 
 FROM python:3.12-slim-trixie
+
+ARG WITH_MPV=0
 
 ENV LANG C.UTF-8
 ENV DEBIAN_FRONTEND=noninteractive
@@ -37,12 +42,14 @@ LABEL \
 ### Install runtime packages:
 # - libpulse0:          Runtime library used by soundcard
 # - libsndfile1:        Runtime library used by soundfile
+# - libmpv2:            Optional runtime library required when MPV backend is enabled
 # - ca-certificates:    For encrypted connections
 # - procps:             For pgrep in healthcheck
 RUN apt-get update && \
     apt-get install --yes --no-install-recommends \
     libpulse0 \
     libsndfile1 \
+    $(if [ "$WITH_MPV" = "1" ]; then echo libmpv2; fi) \
     ca-certificates \
     procps && \
     rm -rf /var/lib/apt/lists/*
