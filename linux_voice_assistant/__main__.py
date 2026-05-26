@@ -18,8 +18,8 @@ from getmac import get_mac_address  # type: ignore
 from pymicro_wakeword import MicroWakeWord, MicroWakeWordFeatures
 from pyopen_wakeword import OpenWakeWord, OpenWakeWordFeatures
 
+from .media_player import MediaPlayer
 from .models import Preferences, ServerState
-from .mpv_player import MpvMediaPlayer
 from .satellite import VoiceSatelliteProtocol
 from .util import (
     get_default_interface,
@@ -65,6 +65,12 @@ async def main() -> None:
     parser.add_argument(
         "--audio-output-device",
         help="Name for the audio output device (see --list-output-devices)",
+    )
+    parser.add_argument(
+        "--audio-backend",
+        default="auto",
+        choices=("auto", "mpv", "soundcard"),
+        help="Playback backend selection (auto, mpv, soundcard)",
     )
     parser.add_argument(
         "--list-output-devices",
@@ -176,14 +182,11 @@ async def main() -> None:
         return
 
     if args.list_output_devices:
-        from mpv import MPV
-
-        player = MPV()
         print("Audio output devices:")
         print("=" * 14)
 
-        for speaker in player.audio_device_list:  # type: ignore
-            print(speaker["name"] + ":", speaker["description"])
+        for idx, speaker in enumerate(sc.all_speakers()):
+            print(f"[{idx}]", speaker.name)
         return
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
@@ -309,8 +312,8 @@ async def main() -> None:
         wake_words=wake_models,
         active_wake_words=active_wake_words,
         stop_word=stop_model,
-        music_player=MpvMediaPlayer(device=args.audio_output_device),
-        tts_player=MpvMediaPlayer(device=args.audio_output_device),
+        music_player=MediaPlayer(device=args.audio_output_device, backend=args.audio_backend),
+        tts_player=MediaPlayer(device=args.audio_output_device, backend=args.audio_backend),
         wakeup_sound=args.wakeup_sound,
         timer_finished_sound=args.timer_finished_sound,
         processing_sound=args.processing_sound,
@@ -326,6 +329,13 @@ async def main() -> None:
         mic_auto_gain=preferences.mic_auto_gain,
         mic_noise_suppression=preferences.mic_noise_suppression,
         timer_max_ring_seconds=args.timer_max_ring_seconds,
+    )
+
+    _LOGGER.info(
+        "Audio backend configured: requested=%s resolved_music=%s resolved_tts=%s",
+        args.audio_backend,
+        state.music_player.resolved_backend,
+        state.tts_player.resolved_backend,
     )
 
     if fallback_used:

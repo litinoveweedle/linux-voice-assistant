@@ -40,6 +40,10 @@ if [ -n "${AUDIO_OUTPUT_DEVICE}" ]; then
   EXTRA_ARGS+=( "--audio-output-device" "$AUDIO_OUTPUT_DEVICE" )
 fi
 
+if [ -n "${AUDIO_BACKEND}" ]; then
+  EXTRA_ARGS+=( "--audio-backend" "$AUDIO_BACKEND" )
+fi
+
 if [ -n "${MIC_VOLUME}" ]; then
   EXTRA_ARGS+=( "--mic-volume" "$MIC_VOLUME" )
 fi
@@ -113,26 +117,33 @@ fi
 
 
 ### Wait for PulseAudio
-# Wait for PulseAudio to be available before starting the application
+# Wait for PulseAudio/PipeWire socket to be available before starting the application
 CP_MAX_RETRIES=30
 CP_RETRY_DELAY=1
-### while maybe besser?
-echo "Checking PulseAudio service status..."
-for i in $(seq 1 $CP_MAX_RETRIES); do
-  # Check if PulseAudio is running
-  if pactl info >/dev/null 2>&1; then
-    echo "✅ PulseAudio is running"
-    break
-  fi
+PULSE_SERVER_VALUE=${PULSE_SERVER:-"/run/user/1000/pulse/native"}
+PULSE_SOCKET_PATH=${PULSE_SERVER_VALUE#unix:}
 
-  if [ $i -eq $CP_MAX_RETRIES ]; then
-      echo "❌ PulseAudio did not start after $CP_MAX_RETRIES seconds"
-      exit 2
-  fi
+if [[ "$PULSE_SERVER_VALUE" == "DISABLED" ]]; then
+  echo "PulseAudio check disabled"
+elif [[ "$PULSE_SERVER_VALUE" == unix:* || "$PULSE_SERVER_VALUE" == /* ]]; then
+  echo "Checking PulseAudio socket at $PULSE_SOCKET_PATH"
+  for i in $(seq 1 $CP_MAX_RETRIES); do
+    if [ -S "$PULSE_SOCKET_PATH" ]; then
+      echo "✅ PulseAudio socket is available"
+      break
+    fi
 
-  echo "⏳ PulseAudio not running yet, retrying in $CP_RETRY_DELAY s..."
-  sleep $CP_RETRY_DELAY
-done
+    if [ $i -eq $CP_MAX_RETRIES ]; then
+        echo "❌ PulseAudio socket not available after $CP_MAX_RETRIES seconds"
+        exit 2
+    fi
+
+    echo "⏳ PulseAudio socket not available yet, retrying in $CP_RETRY_DELAY s..."
+    sleep $CP_RETRY_DELAY
+  done
+else
+  echo "Skipping PulseAudio socket check for server '$PULSE_SERVER_VALUE'"
+fi
 
 
 ### Start application

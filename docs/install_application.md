@@ -2,6 +2,10 @@
 
 You can install the application in different ways. We recommend to use Docker Compose if not the prebuilt image. But if you dont want to use Docker you can also install it directly on your system.
 
+Audio playback uses the `MediaPlayer`/`LibSoundPlayer` path (`soundcard` + `soundfile`). In Docker and systemd deployments, LVA reaches host PipeWire/PulseAudio through the socket configured in `LVA_PULSE_SERVER`.
+
+If `libmpv` is installed on the system, LVA can also use the original MPV backend by setting `AUDIO_BACKEND=mpv` (or leaving `AUDIO_BACKEND=auto` to prefer MPV when available).
+
 ## A) Docker Compose (recommended):
 
 Install packages:
@@ -70,6 +74,13 @@ Start the application:
 docker compose up -d
 ```
 
+Build notes for local images:
+
+- Default build (no MPV install): `docker build -t lva:latest .`
+- Build with MPV support: `docker build --build-arg WITH_MPV=1 -t lva:with-mpv .`
+
+When `WITH_MPV=1` is used, the image includes `python-mpv` and `libmpv2`.
+
 💡 **Note:** If you want to use the application with a different user, you need to change the user in the .env file. Dont forget to change the UID from the user. The docker container will run until you stop it. It will restart autiomatically after a reboot.
 
 Check if the application is running:
@@ -107,7 +118,7 @@ sudo apt-get install \
   pipewire-alsa \
   pipewire-pulse \
   build-essential \
-  libmpv-dev \
+  libmpv2 \
   libasound2-plugins \
   ca-certificates \
   iproute2 \
@@ -120,6 +131,8 @@ sudo apt-get install \
   python3-venv \
   python3-dev
 ```
+
+`libmpv2` brings a lot of dependencies, you can skip it and application will fallback to soundcard/soundfile media player implementation (see README.md for --audio-backend)
 
 Clone the repository:
 
@@ -258,6 +271,7 @@ The following variables can be configured in the `.env` or in the service file:
 | `PORT` | `6053` | API server port |
 | `AUDIO_INPUT_DEVICE` | Autodetected | Audio input device name |
 | `AUDIO_OUTPUT_DEVICE` | Autodetected | Audio output device name |
+| `AUDIO_BACKEND` | `auto` | Playback backend (`auto`, `mpv`, `soundcard`) |
 | `MIC_VOLUME` | Control microphone volume | 1.0 |
 | `MIC_AUTO_GAIN` | Add WebRTC Gain to Mic | 0 |
 | `MIC_NOISE_SUPPRESSION` | Add WebRTC Noise Suppresion to Mic | 0 |

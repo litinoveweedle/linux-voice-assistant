@@ -1,12 +1,12 @@
 import time
 import logging
 
-from linux_voice_assistant.player.libmpv import LibMpvPlayer
+from linux_voice_assistant.media_player import MediaPlayer
 
 
 logging.basicConfig(level=logging.DEBUG)
 
-player = LibMpvPlayer()
+player = MediaPlayer()
 
 player.play("https://icecast.radiofrance.fr/fip-midfi.mp3")
 time.sleep(5)
