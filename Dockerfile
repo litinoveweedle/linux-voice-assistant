@@ -6,11 +6,9 @@ ENV PYTHONUNBUFFERED=1
 
 ### Install build-time packages:
 # - build-essential:    Required to compile native Python dependencies
-# - libmpv-dev:         Required to build python-mpv against libmpv
 RUN apt-get update && \
     apt-get install --yes --no-install-recommends \
-    build-essential \
-    libmpv-dev && \
+    build-essential && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -37,16 +35,14 @@ LABEL \
     org.opencontainers.image.url="https://github.com/OHF-Voice/linux-voice-assistant"
 
 ### Install runtime packages:
-# - pulseaudio-utils:   Required by soundcard library for audio I/O
-# - libmpv2:            Runtime library used by python-mpv
-# - libasound2-plugins: Required by python-mpv for audio playback
+# - libpulse0:          Runtime library used by soundcard
+# - libsndfile1:        Runtime library used by soundfile
 # - ca-certificates:    For encrypted connections
 # - procps:             For pgrep in healthcheck
 RUN apt-get update && \
     apt-get install --yes --no-install-recommends \
-    pulseaudio-utils \
-    libmpv2 \
-    libasound2-plugins \
+    libpulse0 \
+    libsndfile1 \
     ca-certificates \
     procps && \
     rm -rf /var/lib/apt/lists/*

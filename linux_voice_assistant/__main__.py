@@ -176,14 +176,11 @@ async def main() -> None:
         return
 
     if args.list_output_devices:
-        from mpv import MPV
-
-        player = MPV()
         print("Audio output devices:")
         print("=" * 14)
 
-        for speaker in player.audio_device_list:  # type: ignore
-            print(speaker["name"] + ":", speaker["description"])
+        for idx, speaker in enumerate(sc.all_speakers()):
+            print(f"[{idx}]", speaker.name)
         return
 
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)

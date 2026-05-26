@@ -8,7 +8,7 @@ from .player.state import PlayerState
 
 class MpvMediaPlayer:
     """
-    Linux Voice Assistant MediaPlayer implementation based on libmpv.
+    Linux Voice Assistant MediaPlayer implementation.
 
     This class provides the MediaPlayer interface expected by LVA and
     delegates all playback logic to LibMpvPlayer.
