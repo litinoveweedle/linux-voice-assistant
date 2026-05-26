@@ -2,6 +2,7 @@
 
 !/pyproject.toml
 !/setup.cfg
+!/README.md
 !/script/*
 !/docker-entrypoint.sh
 !/linux_voice_assistant/*
