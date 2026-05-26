@@ -1,14 +1,14 @@
 import time
 import logging
 
-from linux_voice_assistant.player.libplayer import LibMediaPlayer
+from linux_voice_assistant.media_player import MediaPlayer
 
 
 """Smoke test for low-level media playback."""
 
 logging.basicConfig(level=logging.INFO)
 
-player = LibMediaPlayer()
+player = MediaPlayer()
 
 print("Loading media...")
 player.play("https://icecast.radiofrance.fr/fip-midfi.mp3")

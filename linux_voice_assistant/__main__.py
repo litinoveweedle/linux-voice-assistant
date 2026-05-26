@@ -67,6 +67,12 @@ async def main() -> None:
         help="Name for the audio output device (see --list-output-devices)",
     )
     parser.add_argument(
+        "--audio-backend",
+        default="auto",
+        choices=("auto", "mpv", "soundcard"),
+        help="Playback backend selection (auto, mpv, soundcard)",
+    )
+    parser.add_argument(
         "--list-output-devices",
         action="store_true",
         help="List audio output devices and exit",
@@ -306,8 +312,8 @@ async def main() -> None:
         wake_words=wake_models,
         active_wake_words=active_wake_words,
         stop_word=stop_model,
-        music_player=MediaPlayer(device=args.audio_output_device),
-        tts_player=MediaPlayer(device=args.audio_output_device),
+        music_player=MediaPlayer(device=args.audio_output_device, backend=args.audio_backend),
+        tts_player=MediaPlayer(device=args.audio_output_device, backend=args.audio_backend),
         wakeup_sound=args.wakeup_sound,
         timer_finished_sound=args.timer_finished_sound,
         processing_sound=args.processing_sound,
@@ -323,6 +329,13 @@ async def main() -> None:
         mic_auto_gain=preferences.mic_auto_gain,
         mic_noise_suppression=preferences.mic_noise_suppression,
         timer_max_ring_seconds=args.timer_max_ring_seconds,
+    )
+
+    _LOGGER.info(
+        "Audio backend configured: requested=%s resolved_music=%s resolved_tts=%s",
+        args.audio_backend,
+        state.music_player.resolved_backend,
+        state.tts_player.resolved_backend,
     )
 
     if fallback_used:

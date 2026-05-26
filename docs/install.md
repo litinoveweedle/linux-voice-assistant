@@ -2,7 +2,7 @@
 
 This guide describes how to install PipeWire, Docker, and then set up the Linux-Voice-Assistant using docker-compose manually. The Linux-Voice-Assistant is a voice assistant that runs locally and supports wake word detection, voice activity detection, and audio playback.
 
-Playback uses the internal `MediaPlayer`/`LibMediaPlayer` stack (`soundcard` + `soundfile`) and communicates with host audio through the PipeWire/PulseAudio-compatible socket.
+Playback uses the internal `MediaPlayer` stack, selecting `LibMpvPlayer` when `libmpv` is available (or explicitly requested) and otherwise using `LibSoundPlayer` (`soundcard` + `soundfile`). Audio communication uses the host PipeWire/PulseAudio-compatible socket.
 
 ## Prerequisites:
 

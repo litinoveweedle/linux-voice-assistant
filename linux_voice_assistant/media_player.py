@@ -1,25 +1,90 @@
 import logging
+from importlib.util import find_spec
 from typing import Callable, List, Optional, Union
 
-from .player.libplayer import LibMediaPlayer
+from .player.base import AudioPlayer
+from .player.libsound import LibSoundPlayer
 from .player.state import PlayerState
+
+
+_VALID_BACKENDS = ("auto", "mpv", "soundcard")
+
+
+def _is_mpv_available() -> bool:
+    """Return True if python-mpv appears importable in this environment."""
+    return find_spec("mpv") is not None
+
+
+def _create_mpv_player(device: str | None) -> AudioPlayer:
+    from .player.libmpv import LibMpvPlayer
+
+    return LibMpvPlayer(device=device)
 
 
 class MediaPlayer:
     """
-    Linux Voice Assistant MediaPlayer implementation.
+    Linux Voice Assistant SoundPlayer implementation.
 
-    This class provides the MediaPlayer interface expected by LVA and
-    delegates all playback logic to LibMediaPlayer.
+    This class provides the SoundPlayer interface expected by LVA and
+    delegates playback logic to either LibMpvPlayer or LibSoundPlayer.
     """
 
-    def __init__(self, device: str | None = None) -> None:
+    def __init__(self, device: str | None = None, backend: str = "auto") -> None:
         self._log = logging.getLogger(self.__class__.__name__)
-        self._player = LibMediaPlayer(device=device)
+        self._requested_backend = backend.lower().strip()
+        self._resolved_backend = "unknown"
+        self._player = self._build_player(device=device, backend=backend)
         self._done_callback: Optional[Callable[[], None]] = None
         self._playlist: List[str] = []
 
-        self._log.debug("MediaPlayer initialized (device=%s)", device)
+        self._log.debug(
+            "MediaPlayer initialized (device=%s, requested_backend=%s, resolved_backend=%s)",
+            device,
+            self._requested_backend,
+            self._resolved_backend,
+        )
+
+    def _build_player(self, device: str | None, backend: str) -> AudioPlayer:
+        backend_normalized = backend.lower().strip()
+        if backend_normalized not in _VALID_BACKENDS:
+            raise ValueError(f"Unsupported audio backend '{backend}'. Valid values: {', '.join(_VALID_BACKENDS)}")
+
+        if backend_normalized == "soundcard":
+            self._resolved_backend = "soundcard"
+            self._log.info("Audio backend selected: soundcard")
+            return LibSoundPlayer(device=device)
+
+        if backend_normalized == "mpv":
+            if not _is_mpv_available():
+                raise RuntimeError("Audio backend 'mpv' requested, but python-mpv is not installed")
+            self._log.info("Audio backend selected: mpv")
+            try:
+                self._resolved_backend = "mpv"
+                return _create_mpv_player(device=device)
+            except Exception as err:  # pylint: disable=broad-except
+                raise RuntimeError("Audio backend 'mpv' requested, but libmpv is not available") from err
+
+        # backend=auto
+        if _is_mpv_available():
+            try:
+                player = _create_mpv_player(device=device)
+                self._resolved_backend = "mpv"
+                self._log.info("Audio backend auto-selected: mpv")
+                return player
+            except Exception:  # pylint: disable=broad-except
+                self._log.info("Audio backend auto-fallback to soundcard (mpv unavailable at runtime)")
+
+        self._resolved_backend = "soundcard"
+        self._log.info("Audio backend auto-selected: soundcard (mpv unavailable)")
+        return LibSoundPlayer(device=device)
+
+    @property
+    def requested_backend(self) -> str:
+        return self._requested_backend
+
+    @property
+    def resolved_backend(self) -> str:
+        return self._resolved_backend
 
     def play(
         self,

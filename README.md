@@ -20,7 +20,7 @@ Because it runs on a full Linux system and offers access significantly more loca
 - Supports multiple architectures (linux/amd64 and linux/aarch64)
 - Automated builds with artifact attestation for security
 - Supports announcments, start/continue conversation, and timers
-- Playback backend uses `soundcard` + `soundfile` for output streaming
+- Playback backend uses `mpv` or fallback to `soundcard` + `soundfile` for output streaming
 - Tested and works with Python 3.11 and Python 3.12.
 - Prebuild docker image available on [GitHub Container Registry](https://github.com/OHF-Voice/linux-voice-assistant/pkgs/container/linux-voice-assistant)
 - Prebuild [Raspberry Pi image](https://github.com/florian-asche/PiCompose)
@@ -52,7 +52,7 @@ For Raspberry Pi users, we provide a prebuild image that can be flashed to a SD 
 
 For all other users, we have different installation methods available (Docker, systemd), each with its own dedicated instructions. See [Linux-Voice-Assistant - Installation](docs/install.md).
 
-The current playback stack is `MediaPlayer` -> `LibMediaPlayer` (`soundcard` + `soundfile`) and uses the host PipeWire/PulseAudio socket configured via `LVA_PULSE_SERVER`.
+The current playback stack is `MediaPlayer` -> (`LibMpvPlayer` or `LibSoundPlayer`). In `auto` mode, LVA prefers MPV when `libmpv` is available and otherwise uses the `soundcard`/`soundfile` backend.
 
 ### Parameter overview
 
@@ -60,7 +60,7 @@ The current playback stack is `MediaPlayer` -> `LibMediaPlayer` (`soundcard` + `
 
 ```sh
 usage: __main__.py [-h] [--name NAME] [--audio-input-device AUDIO_INPUT_DEVICE] [--list-input-devices] [--audio-input-block-size AUDIO_INPUT_BLOCK_SIZE] [--audio-output-device AUDIO_OUTPUT_DEVICE] [--list-output-devices] [--wake-word-dir WAKE_WORD_DIR]  [--mic-auto-gain] [--mic-noise-suppression]
-                   [--wake-model WAKE_MODEL] [--stop-model STOP_MODEL] [--download-dir DOWNLOAD_DIR] [--refractory-seconds REFRACTORY_SECONDS] [--wakeup-sound WAKEUP_SOUND] [--timer-finished-sound TIMER_FINISHED_SOUND] [--processing-sound PROCESSING_SOUND]
+                   [--audio-backend {auto,mpv,soundcard}] [--wake-model WAKE_MODEL] [--stop-model STOP_MODEL] [--download-dir DOWNLOAD_DIR] [--refractory-seconds REFRACTORY_SECONDS] [--wakeup-sound WAKEUP_SOUND] [--timer-finished-sound TIMER_FINISHED_SOUND] [--processing-sound PROCESSING_SOUND]
                    [--mute-sound MUTE_SOUND] [--unmute-sound UNMUTE_SOUND] [--preferences-file PREFERENCES_FILE] [--host HOST] [--network-interface NETWORK_INTERFACE] [--port PORT] [--enable-thinking-sound] [--debug]
 ```
 
@@ -71,6 +71,7 @@ usage: __main__.py [-h] [--name NAME] [--audio-input-device AUDIO_INPUT_DEVICE] 
 | `--audio-input-device`     | Soundcard name for input device                               | Autodetected                      |
 | `--audio-input-block-size` | Audio input block size in samples                             | 1024                              |
 | `--audio-output-device`    | Soundcard name for output device                              | Autodetected                      |
+| `--audio-backend`          | Playback backend (`auto`, `mpv`, `soundcard`)                 | `auto`                            |
 | `--mic-volume`             | Control microphone volume                                     | 1.0                               |
 | `--mic-auto-gain`          | Add WebRTC Gain to Mic                                        | 0                                 |
 | `--mic-noise-suppression`  | Add WebRTC Noise Suppression to Mic                           | 0                                 |
@@ -92,6 +93,8 @@ usage: __main__.py [-h] [--name NAME] [--audio-input-device AUDIO_INPUT_DEVICE] 
 | `--enable-thinking-sound`  | Enable thinking sound on startup                              | False                             |
 | `--debug`                  | Print DEBUG messages to console                               | False                             |
 | `--output-only`            | Enable output only mode                                       | False                             |
+
+With `--audio-backend auto`, LVA will use MPV when `libmpv` is available and otherwise fall back to the `soundcard`/`soundfile` backend.
 
 💡 **Note:** There is a detailed explanation on the gain, noise suppression, and wake word sensitivity flags in the [audio options](docs/audio_options.md) file.
 
