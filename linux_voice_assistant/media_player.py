@@ -6,7 +6,6 @@ from .player.base import AudioPlayer
 from .player.libsound import LibSoundPlayer
 from .player.state import PlayerState
 
-
 _VALID_BACKENDS = ("auto", "mpv", "soundcard")
 
 
