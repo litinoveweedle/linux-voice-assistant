@@ -1,3 +1,26 @@
+FROM python:3.12-slim-trixie AS builder
+
+ENV LANG C.UTF-8
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+### Install build-time packages:
+# - build-essential:    Required to compile native Python dependencies
+# - libmpv-dev:         Required to build python-mpv against libmpv
+RUN apt-get update && \
+    apt-get install --yes --no-install-recommends \
+    build-essential \
+    libmpv-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY . ./
+
+RUN chmod +x docker-entrypoint.sh && \
+    ./script/setup
+
+
 FROM python:3.12-slim-trixie
 
 ENV LANG C.UTF-8
@@ -13,53 +36,27 @@ LABEL \
     org.opencontainers.image.title="Linux-Voice-Assistant" \
     org.opencontainers.image.url="https://github.com/OHF-Voice/linux-voice-assistant"
 
-### Install packages:
-# - avahi-utils:        For zeroconf/mDNS discovery by Home Assistant
+### Install runtime packages:
 # - pulseaudio-utils:   Required by soundcard library for audio I/O
-# - alsa-utils:         ALSA tools for audio device management
-# - pipewire-bin:       Required for pipewire support
-# - pipewire-alsa:      Required for pipewire support
-# - pipewire-pulse:     Required for pipewire support
-# - build-essential:    Required to compile pymicro-features
-# - libmpv-dev:         Required by python-mpv for audio playback
+# - libmpv2:            Runtime library used by python-mpv
 # - libasound2-plugins: Required by python-mpv for audio playback
 # - ca-certificates:    For encrypted connections
-# - iproute2:           For ss command in entrypoint (port check)
 # - procps:             For pgrep in healthcheck
 RUN apt-get update && \
     apt-get install --yes --no-install-recommends \
-    avahi-utils \
     pulseaudio-utils \
-    alsa-utils \
-    pipewire-bin \
-    pipewire-alsa \
-    pipewire-pulse \
-    build-essential \
-    libmpv-dev \
+    libmpv2 \
     libasound2-plugins \
     ca-certificates \
-    iproute2 \
-    vim \
     procps && \
-apt-get clean
+    rm -rf /var/lib/apt/lists/*
 
-### Set workdir:
 WORKDIR /app
 
-### Copy all application files:
-COPY script/ ./script/
-COPY pyproject.toml ./
-COPY setup.cfg ./
-COPY sounds/ ./sounds/
-COPY ../wakewords/ ./wakewords/
-COPY linux_voice_assistant/ ./linux_voice_assistant/
-COPY docker-entrypoint.sh ./
-COPY version.txt ./
-COPY version_githash.txt ./
+COPY --from=builder /app/.venv /app/.venv
+COPY . ./
 
-### Run installation:
 RUN chmod +x docker-entrypoint.sh
-RUN ./script/setup
 
 ### Set ports for ESPHome API:
 EXPOSE 6053
